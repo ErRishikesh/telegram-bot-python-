@@ -1,0 +1,17 @@
+{
+  "name": "royal-earning-bot",
+  "version": "1.0.0",
+  "description": "Telegram Referral Bot System with Admin Panel",
+  "main": "app.py",
+  "scripts": {
+    "start": "python3 app.py",
+    "dev": "python3 app.py",
+    "install-deps": "pip3 install -r requirements.txt"
+  },
+  "keywords": ["telegram", "bot", "referral", "admin-panel"],
+  "author": "ROYAL RISHI",
+  "license": "MIT",
+  "dependencies": {},
+  "devDependencies": {}
+}
+
