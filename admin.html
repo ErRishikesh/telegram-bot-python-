@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ROYAL EARNING - Admin Panel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        [x-cloak] { display: none !important; }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen" x-data="adminPanel()" x-init="init()">
+    
+    <!-- Login Modal -->
+    <div x-show="!isLoggedIn" x-cloak class="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg shadow-xl p-8 w-full max-w-md mx-4">
+            <div class="text-center mb-6">
+                <h1 class="text-3xl font-bold text-gray-800 mb-2">ROYAL EARNING</h1>
+                <p class="text-gray-600">Admin Panel Login</p>
+            </div>
+            
+            <form @submit.prevent="login()">
+                <div class="mb-4">
+                    <label class="block text-gray-700 text-sm font-bold mb-2">Username</label>
+                    <input type="text" x-model="loginForm.username" 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+                           placeholder="Enter username" required>
+                </div>
+                
+                <div class="mb-6">
+                    <label class="block text-gray-700 text-sm font-bold mb-2">Password</label>
+                    <input type="password" x-model="loginForm.password"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+                           placeholder="Enter password" required>
+                </div>
+                
+                <button type="submit" :disabled="loading"
+                        class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition duration-200 disabled:opacity-50">
+                    <span x-show="!loading">Login</span>
+                    <span x-show="loading">Logging in...</span>
+                </button>
+            </form>
+            
+            <div x-show="error" x-text="error" class="mt-4 text-red-600 text-center"></div>
+        </div>
+    </div>
+
+    <!-- Main Admin Panel -->
+    <div x-show="isLoggedIn" x-cloak class="flex h-screen bg-gray-100">
+        
+        <!-- Sidebar -->
+        <div class="w-64 bg-white shadow-lg">
+            <div class="p-6 border-b">
+                <h1 class="text-xl font-bold text-gray-800">ROYAL EARNING</h1>
+                <p class="text-sm text-gray-600">Admin Panel</p>
+            </div>
+            
+            <nav class="mt-6">
+                <a @click="currentTab = 'dashboard'" 
+                   :class="currentTab === 'dashboard' ? 'bg-blue-50 text-blue-600 border-r-2 border-blue-600' : 'text-gray-600 hover:bg-gray-50'"
+                   class="flex items-center px-6 py-3 cursor-pointer transition duration-200">
+                    <i class="fas fa-chart-bar mr-3"></i>
+                    Dashboard
+                </a>
+                
+                <a @click="currentTab = 'users'" 
+                   :class="currentTab === 'users' ? 'bg-blue-50 text-blue-600 border-r-2 border-blue-600' : 'text-gray-600 hover:bg-gray-50'"
+                   class="flex items-center px-6 py-3 cursor-pointer transition duration-200">
+                    <i class="fas fa-users mr-3"></i>
+                    Users
+                </a>
+                
+                <a @click="currentTab = 'withdrawals'" 
+                   :class="currentTab === 'withdrawals' ? 'bg-blue-50 text-blue-600 border-r-2 border-blue-600' : 'text-gray-600 hover:bg-gray-50'"
+                   class="flex items-center px-6 py-3 cursor-pointer transition duration-200">
+                    <i class="fas fa-money-bill-wave mr-3"></i>
+                    Withdrawals
+                </a>
+            </nav>
+            
+            <div class="absolute bottom-0 w-64 p-6 border-t">
+                <button @click="logout()" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg transition duration-200">
+                    <i class="fas fa-sign-out-alt mr-2"></i>
+                    Logout
+                </button>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="flex-1 overflow-auto">
+            
+            <!-- Header -->
+            <div class="bg-white shadow-sm border-b px-6 py-4">
+                <div class="flex items-center justify-between">
+                    <h2 class="text-2xl font-semibold text-gray-800" x-text="getTabTitle()"></h2>
+                    <button @click="refreshData()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition duration-200">
+                        <i class="fas fa-sync-alt mr-2"></i>
+                        Refresh
+                    </button>
+                </div>
+            </div>
+
+            <!-- Dashboard Tab -->
+            <div x-show="currentTab === 'dashboard'" class="p-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <div class="flex items-center">
+                            <div class="p-3 rounded-full bg-blue-100 text-blue-600">
+                                <i class="fas fa-users text-xl"></i>
+                            </div>
+                            <div class="ml-4">
+                                <p class="text-sm font-medium text-gray-600">Total Users</p>
+                                <p class="text-2xl font-semibold text-gray-900" x-text="stats.total_users || 0"></p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <div class="flex items-center">
+                            <div class="p-3 rounded-full bg-green-100 text-green-600">
+                                <i class="fas fa-user-check text-xl"></i>
+                            </div>
+                            <div class="ml-4">
+                                <p class="text-sm font-medium text-gray-600">Active Users</p>
+                                <p class="text-2xl font-semibold text-gray-900" x-text="stats.active_users || 0"></p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <div class="flex items-center">
+                            <div class="p-3 rounded-full bg-yellow-100 text-yellow-600">
+                                <i class="fas fa-money-bill-wave text-xl"></i>
+                            </div>
+                            <div class="ml-4">
+                                <p class="text-sm font-medium text-gray-600">Total Withdrawals</p>
+                                <p class="text-2xl font-semibold text-gray-900" x-text="stats.total_withdrawals || 0"></p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <div class="flex items-center">
+                            <div class="p-3 rounded-full bg-purple-100 text-purple-600">
+                                <i class="fas fa-clock text-xl"></i>
+                            </div>
+                            <div class="ml-4">
+                                <p class="text-sm font-medium text-gray-600">Pending Requests</p>
+                                <p class="text-2xl font-semibold text-gray-900" x-text="pendingWithdrawals.length || 0"></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Recent Activity -->
+                <div class="bg-white rounded-lg shadow">
+                    <div class="px-6 py-4 border-b">
+                        <h3 class="text-lg font-semibold text-gray-800">Recent Withdrawal Requests</h3>
+                    </div>
+                    <div class="p-6">
+                        <template x-if="pendingWithdrawals.length === 0">
+                            <p class="text-gray-500 text-center py-8">No pending withdrawal requests</p>
+                        </template>
+                        
+                        <template x-if="pendingWithdrawals.length > 0">
+                            <div class="space-y-4">
+                                <template x-for="withdrawal in pendingWithdrawals.slice(0, 5)" :key="withdrawal.id">
+                                    <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                                        <div>
+                                            <p class="font-medium" x-text="'User ID: ' + withdrawal.telegram_id"></p>
+                                            <p class="text-sm text-gray-600" x-text="'Amount: ₹' + withdrawal.amount"></p>
+                                            <p class="text-sm text-gray-600" x-text="'UPI: ' + withdrawal.upi_id"></p>
+                                        </div>
+                                        <div class="flex space-x-2">
+                                            <button @click="approveWithdrawal(withdrawal.id)" 
+                                                    class="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm transition duration-200">
+                                                Approve
+                                            </button>
+                                            <button @click="rejectWithdrawal(withdrawal.id)" 
+                                                    class="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm transition duration-200">
+                                                Reject
+                                            </button>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Users Tab -->
+            <div x-show="currentTab === 'users'" class="p-6">
+                <div class="bg-white rounded-lg shadow">
+                    <div class="px-6 py-4 border-b">
+                        <h3 class="text-lg font-semibold text-gray-800">User Management</h3>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Telegram ID</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Balance</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Referrals</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">UPI ID</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200">
+                                <template x-for="user in users" :key="user.telegram_id">
+                                    <tr>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <div>
+                                                <div class="text-sm font-medium text-gray-900" x-text="user.first_name + ' ' + user.last_name"></div>
+                                                <div class="text-sm text-gray-500" x-text="'@' + user.username"></div>
+                                            </div>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" x-text="user.telegram_id"></td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" x-text="'₹' + user.wallet_balance"></td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" x-text="user.referred_users.length"></td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" x-text="user.upi_id || 'Not Set'"></td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <span :class="user.joined_channel ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'" 
+                                                  class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full">
+                                                <span x-text="user.joined_channel ? 'Active' : 'Inactive'"></span>
+                                            </span>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                            <button @click="editUserBalance(user)" 
+                                                    class="text-blue-600 hover:text-blue-900 mr-3">Edit Balance</button>
+                                        </td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Withdrawals Tab -->
+            <div x-show="currentTab === 'withdrawals'" class="p-6">
+                <div class="bg-white rounded-lg shadow">
+                    <div class="px-6 py-4 border-b">
+                        <h3 class="text-lg font-semibold text-gray-800">Withdrawal Requests</h3>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Request ID</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User ID</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">UPI ID</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200">
+                                <template x-for="withdrawal in withdrawals" :key="withdrawal.id">
+                                    <tr>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" x-text="withdrawal.id.substring(0, 8) + '...'"></td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" x-text="withdrawal.telegram_id"></td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" x-text="'₹' + withdrawal.amount"></td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" x-text="withdrawal.upi_id"></td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <span :class="getStatusColor(withdrawal.status)" 
+                                                  class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full">
+                                                <span x-text="withdrawal.status.charAt(0).toUpperCase() + withdrawal.status.slice(1)"></span>
+                                            </span>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" x-text="formatDate(withdrawal.created_at)"></td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                            <template x-if="withdrawal.status === 'pending'">
+                                                <div class="flex space-x-2">
+                                                    <button @click="approveWithdrawal(withdrawal.id)" 
+                                                            class="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm transition duration-200">
+                                                        Approve
+                                                    </button>
+                                                    <button @click="rejectWithdrawal(withdrawal.id)" 
+                                                            class="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm transition duration-200">
+                                                        Reject
+                                                    </button>
+                                                </div>
+                                            </template>
+                                        </td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Balance Modal -->
+    <div x-show="showEditModal" x-cloak class="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md mx-4">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">Edit User Balance</h3>
+            
+            <div class="mb-4">
+                <label class="block text-gray-700 text-sm font-bold mb-2">User</label>
+                <p class="text-gray-600" x-text="editingUser ? editingUser.first_name + ' ' + editingUser.last_name : ''"></p>
+            </div>
+            
+            <div class="mb-4">
+                <label class="block text-gray-700 text-sm font-bold mb-2">Current Balance</label>
+                <p class="text-gray-600" x-text="editingUser ? '₹' + editingUser.wallet_balance : ''"></p>
+            </div>
+            
+            <div class="mb-6">
+                <label class="block text-gray-700 text-sm font-bold mb-2">New Balance</label>
+                <input type="number" x-model="newBalance" 
+                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+                       placeholder="Enter new balance" min="0">
+            </div>
+            
+            <div class="flex space-x-4">
+                <button @click="updateUserBalance()" 
+                        class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition duration-200">
+                    Update
+                </button>
+                <button @click="showEditModal = false" 
+                        class="flex-1 bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg transition duration-200">
+                    Cancel
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function adminPanel() {
+            return {
+                isLoggedIn: false,
+                currentTab: 'dashboard',
+                loading: false,
+                error: '',
+                loginForm: {
+                    username: '',
+                    password: ''
+                },
+                stats: {},
+                users: [],
+                withdrawals: [],
+                pendingWithdrawals: [],
+                showEditModal: false,
+                editingUser: null,
+                newBalance: 0,
+
+                init() {
+                    // Check if already logged in
+                    const token = localStorage.getItem('admin_token');
+                    if (token) {
+                        this.isLoggedIn = true;
+                        this.refreshData();
+                    }
+                },
+
+                async login() {
+                    this.loading = true;
+                    this.error = '';
+                    
+                    try {
+                        const response = await fetch('/api/admin/login', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify(this.loginForm)
+                        });
+                        
+                        const data = await response.json();
+                        
+                        if (data.success) {
+                            localStorage.setItem('admin_token', data.token);
+                            this.isLoggedIn = true;
+                            this.refreshData();
+                        } else {
+                            this.error = data.message || 'Login failed';
+                        }
+                    } catch (error) {
+                        this.error = 'Connection error';
+                    }
+                    
+                    this.loading = false;
+                },
+
+                logout() {
+                    localStorage.removeItem('admin_token');
+                    this.isLoggedIn = false;
+                    this.currentTab = 'dashboard';
+                },
+
+                async refreshData() {
+                    await Promise.all([
+                        this.loadStats(),
+                        this.loadUsers(),
+                        this.loadWithdrawals()
+                    ]);
+                },
+
+                async loadStats() {
+                    try {
+                        const response = await fetch('/api/admin/stats', {
+                            headers: {
+                                'Authorization': 'Bearer ' + localStorage.getItem('admin_token')
+                            }
+                        });
+                        const data = await response.json();
+                        if (data.success) {
+                            this.stats = data.stats;
+                        }
+                    } catch (error) {
+                        console.error('Error loading stats:', error);
+                    }
+                },
+
+                async loadUsers() {
+                    try {
+                        const response = await fetch('/api/admin/users', {
+                            headers: {
+                                'Authorization': 'Bearer ' + localStorage.getItem('admin_token')
+                            }
+                        });
+                        const data = await response.json();
+                        if (data.success) {
+                            this.users = data.users;
+                        }
+                    } catch (error) {
+                        console.error('Error loading users:', error);
+                    }
+                },
+
+                async loadWithdrawals() {
+                    try {
+                        const response = await fetch('/api/admin/withdrawals', {
+                            headers: {
+                                'Authorization': 'Bearer ' + localStorage.getItem('admin_token')
+                            }
+                        });
+                        const data = await response.json();
+                        if (data.success) {
+                            this.withdrawals = data.withdrawals;
+                            this.pendingWithdrawals = data.withdrawals.filter(w => w.status === 'pending');
+                        }
+                    } catch (error) {
+                        console.error('Error loading withdrawals:', error);
+                    }
+                },
+
+                async approveWithdrawal(withdrawalId) {
+                    try {
+                        const response = await fetch('/api/admin/withdrawals/approve', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': 'Bearer ' + localStorage.getItem('admin_token')
+                            },
+                            body: JSON.stringify({ withdrawal_id: withdrawalId })
+                        });
+                        
+                        const data = await response.json();
+                        if (data.success) {
+                            this.loadWithdrawals();
+                        }
+                    } catch (error) {
+                        console.error('Error approving withdrawal:', error);
+                    }
+                },
+
+                async rejectWithdrawal(withdrawalId) {
+                    try {
+                        const response = await fetch('/api/admin/withdrawals/reject', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': 'Bearer ' + localStorage.getItem('admin_token')
+                            },
+                            body: JSON.stringify({ withdrawal_id: withdrawalId })
+                        });
+                        
+                        const data = await response.json();
+                        if (data.success) {
+                            this.loadWithdrawals();
+                        }
+                    } catch (error) {
+                        console.error('Error rejecting withdrawal:', error);
+                    }
+                },
+
+                editUserBalance(user) {
+                    this.editingUser = user;
+                    this.newBalance = user.wallet_balance;
+                    this.showEditModal = true;
+                },
+
+                async updateUserBalance() {
+                    try {
+                        const response = await fetch('/api/admin/users/balance', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': 'Bearer ' + localStorage.getItem('admin_token')
+                            },
+                            body: JSON.stringify({
+                                telegram_id: this.editingUser.telegram_id,
+                                new_balance: this.newBalance
+                            })
+                        });
+                        
+                        const data = await response.json();
+                        if (data.success) {
+                            this.showEditModal = false;
+                            this.loadUsers();
+                        }
+                    } catch (error) {
+                        console.error('Error updating balance:', error);
+                    }
+                },
+
+                getTabTitle() {
+                    const titles = {
+                        'dashboard': 'Dashboard',
+                        'users': 'User Management',
+                        'withdrawals': 'Withdrawal Management'
+                    };
+                    return titles[this.currentTab] || 'Dashboard';
+                },
+
+                getStatusColor(status) {
+                    const colors = {
+                        'pending': 'bg-yellow-100 text-yellow-800',
+                        'approved': 'bg-green-100 text-green-800',
+                        'rejected': 'bg-red-100 text-red-800'
+                    };
+                    return colors[status] || 'bg-gray-100 text-gray-800';
+                },
+
+                formatDate(dateString) {
+                    return new Date(dateString).toLocaleDateString();
+                }
+            }
+        }
+    </script>
+</body>
+</html>
+
